@@ -1,0 +1,205 @@
+{
+  "name": "FX Rates - Manual Override",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "admin/fx-rates/manual",
+        "options": {
+          "responseMode": "lastNode"
+        }
+      },
+      "id": "HttpTrigger",
+      "name": "HTTP Trigger",
+      "type": "n8n-nodes-base.httpTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const { authMiddleware } = require('../functions/authMiddleware.js');\nreturn authMiddleware(items);"
+      },
+      "id": "AuthMiddleware",
+      "name": "Auth Middleware",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        420,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const auth = $json.$auth;\nif (!auth.permissions.includes('*') && !auth.permissions.includes('deal.view_all')) {\n  throw new Error('Forbidden');\n}\nconst payload = $json.body;\nif (!payload || typeof payload !== 'object') {\n  throw new Error('Invalid request body');\n}\nconst { base, quote, rate, as_of } = payload;\nif (!base || !quote || typeof rate !== 'number') {\n  throw new Error('Missing FX fields');\n}\nreturn [{ json: { base, quote, rate, as_of: as_of || new Date().toISOString().slice(0,10), source: 'manual' }, pairedItem: 0 }];"
+      },
+      "id": "Validate",
+      "name": "Validate",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        640,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO fx_rates (base, quote, rate, as_of, source) VALUES (:base, :quote, :rate, :as_of, :source)\nON DUPLICATE KEY UPDATE rate = VALUES(rate), source = VALUES(source), updated_at = NOW()",
+        "values": {
+          "string": [
+            {
+              "name": "base",
+              "value": "={{$json.base}}"
+            },
+            {
+              "name": "quote",
+              "value": "={{$json.quote}}"
+            },
+            {
+              "name": "as_of",
+              "value": "={{$json.as_of}}"
+            },
+            {
+              "name": "source",
+              "value": "={{$json.source}}"
+            }
+          ],
+          "number": [
+            {
+              "name": "rate",
+              "value": "={{$json.rate}}"
+            }
+          ]
+        }
+      },
+      "id": "Upsert",
+      "name": "Upsert",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 1,
+      "position": [
+        860,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO audit_log (user_id, entity, entity_id, action, delta_json) VALUES (:user_id, 'fx_rates', 0, 'update', JSON_OBJECT('base', :base, 'quote', :quote, 'rate', :rate))",
+        "values": {
+          "string": [
+            {
+              "name": "user_id",
+              "value": "={{$json.$auth.user_id}}"
+            },
+            {
+              "name": "base",
+              "value": "={{$json.base}}"
+            },
+            {
+              "name": "quote",
+              "value": "={{$json.quote}}"
+            }
+          ],
+          "number": [
+            {
+              "name": "rate",
+              "value": "={{$json.rate}}"
+            }
+          ]
+        }
+      },
+      "id": "Audit",
+      "name": "Audit",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 1,
+      "position": [
+        1080,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "return [{ json: { success: true } }];"
+      },
+      "id": "Respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        320
+      ]
+    }
+  ],
+  "connections": {
+    "HTTP Trigger": {
+      "main": [
+        [
+          {
+            "node": "Auth Middleware",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auth Middleware": {
+      "main": [
+        [
+          {
+            "node": "Validate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate": {
+      "main": [
+        [
+          {
+            "node": "Upsert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert": {
+      "main": [
+        [
+          {
+            "node": "Audit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Audit": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "staticData": null,
+  "id": "fxRatesManualOverride",
+  "active": false,
+  "tags": [],
+  "meta": {
+    "instanceId": "dealflow-docker"
+  },
+  "versionId": "1ed1946f-3286-4398-be9b-54ad9b405f23"
+}
