@@ -27,8 +27,12 @@ services:
 
   n8n:
     build:
-      context: ./n8n
-      dockerfile: ../docker/n8n.Dockerfile
+      context: .
+      dockerfile: docker/n8n.Dockerfile
+      args:
+        APP_SOURCE_STRATEGY: ${APP_SOURCE_STRATEGY:-local}
+        APP_GIT_REPO: ${APP_GIT_REPO:-}
+        APP_GIT_REF: ${APP_GIT_REF:-main}
     restart: unless-stopped
     env_file:
       - .env.docker
@@ -55,10 +59,17 @@ services:
       - "${N8N_PORT}:5678"
     volumes:
       - n8n_data:/home/node/.n8n
-      - ./n8n/workflows:/data/workflows:ro
-      - ./n8n/functions:/home/node/.n8n/custom:ro
+      - type: volume
+        source: n8n_workflows
+        target: /data/workflows
+      - type: volume
+        source: n8n_extensions
+        target: /home/node/.n8n/custom
     command: >
-      /bin/sh -c "npm install --prefix /home/node/.n8n jsonwebtoken mysql2 && \
+      /bin/sh -c "mkdir -p /data/workflows /home/node/.n8n/custom && \
+        cp -R /workspace/n8n/workflows/* /data/workflows/ 2>/dev/null || true && \
+        cp -R /workspace/n8n/functions/* /home/node/.n8n/custom/ 2>/dev/null || true && \
+        npm install --prefix /home/node/.n8n jsonwebtoken mysql2 && \
         n8n import:workflow --input=/data/workflows --separate --overwrite && \
         n8n start"
     networks:
@@ -66,8 +77,12 @@ services:
 
   frontend:
     build:
-      context: ./frontend
-      dockerfile: ../docker/frontend.Dockerfile
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+      args:
+        APP_SOURCE_STRATEGY: ${APP_SOURCE_STRATEGY:-local}
+        APP_GIT_REPO: ${APP_GIT_REPO:-}
+        APP_GIT_REF: ${APP_GIT_REF:-main}
     restart: unless-stopped
     env_file:
       - .env.docker
@@ -85,6 +100,8 @@ services:
 volumes:
   mysql_data:
   n8n_data:
+  n8n_workflows:
+  n8n_extensions:
 
 networks:
   dealflow:

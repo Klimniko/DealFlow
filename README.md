@@ -19,7 +19,13 @@ This repository contains the DealFlow frontend (React), n8n workflows, and MySQL
 
    Update the values in `.env.local` and then point Docker Compose at it by setting `COMPOSE_ENV_FILE=.env.local` or passing `--env-file`. The defaults work out of the box for local testing.
 
-2. **Build and start the stack**
+2. **(Optional) Configure automatic source sync**
+
+   By default the containers clone the DealFlow repository declared in `.env.docker` into the image at build time. Update
+   `APP_GIT_REPO` with your actual GitHub URL (and `APP_GIT_REF` if you need a non-`main` branch). If you prefer to build from
+   your local working copy instead, set `APP_SOURCE_STRATEGY=local` in your env file before building.
+
+3. **Build and start the stack**
 
    ```powershell
    docker compose --env-file .env.docker up --build
@@ -28,8 +34,8 @@ This repository contains the DealFlow frontend (React), n8n workflows, and MySQL
    The command will:
 
    - Launch MySQL 8.0 and run `migrations/01_initial_schema.sql` automatically.
-   - Build an n8n image with the required custom libraries (`jsonwebtoken`, `mysql2`), import all workflows on boot, and start the n8n server on <http://localhost:5678>.
-   - Build the React frontend image and start the Vite dev server on <http://localhost:5173> with hot reloading enabled.
+   - Clone the DealFlow repository (when `APP_SOURCE_STRATEGY=git`), then build an n8n image with the required custom libraries (`jsonwebtoken`, `mysql2`), import all workflows on boot, and start the n8n server on <http://localhost:5678>.
+   - Clone the DealFlow repository (when `APP_SOURCE_STRATEGY=git`), install frontend dependencies, and start the Vite dev server on <http://localhost:5173> with hot reloading enabled.
 
 3. **Log in**
 
@@ -48,9 +54,14 @@ This repository contains the DealFlow frontend (React), n8n workflows, and MySQL
 
 All services share the `dealflow` Docker network so you can use container hostnames (`db`, `n8n`) in code and workflows.
 
-## Custom n8n Functions
+## Source Synchronisation
 
-Custom helpers located in `n8n/functions` are mounted into the container at `/home/node/.n8n/custom` and loaded automatically. Their npm dependencies are installed on container startup, so no manual setup is required.
+During the image build phase the `sync-source.sh` helper either copies the local repository into the image (strategy `local`) or
+clones the remote Git repository/branch specified in `.env.docker` (strategy `git`). The contents are staged in `/workspace` so
+both the frontend build and the n8n bootstrap command can read from a consistent location inside the containers.
+
+Custom n8n helpers from `n8n/functions` and workflows from `n8n/workflows` are copied into the persistent volumes on every
+container start before the n8n process runs. This keeps the imported workflows up to date with the Git source.
 
 ## Useful Commands
 
@@ -71,10 +82,12 @@ Custom helpers located in `n8n/functions` are mounted into the container at `/ho
 
 ## Data Persistence
 
-Two named volumes keep your data between restarts:
+Four named volumes keep your data between restarts:
 
 - `mysql_data` – MySQL data files
 - `n8n_data` – n8n configuration, credentials, and runtime state
+- `n8n_workflows` – Imported workflow definitions synced from Git/local source
+- `n8n_extensions` – Custom function modules copied into the runtime
 
 Remove the volumes with `docker compose down -v` if you want a clean slate.
 
