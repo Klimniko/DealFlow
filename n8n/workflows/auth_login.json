@@ -16,28 +16,7 @@
     },
     {
       "parameters": {
-        "functionCode": "const schema = {
-  email: { required: true, regex: /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/ },
-  password: { required: true, min: 8 },
-};
-
-const body = items[0].json;
-
-for (const key of Object.keys(schema)) {
-  const rules = schema[key];
-  const value = body[key];
-  if (rules.required && !value) {
-    throw new Error(`${key} is required`);
-  }
-  if (rules.min && value.length < rules.min) {
-    throw new Error(`${key} must be at least ${rules.min} characters`);
-  }
-  if (rules.regex && !rules.regex.test(value)) {
-    throw new Error(`${key} is invalid`);
-  }
-}
-
-return items;"
+        "functionCode": "const schema = {\n  email: { required: true, regex: /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/ },\n  password: { required: true, min: 8 },\n};\n\nconst body = items[0].json;\n\nfor (const key of Object.keys(schema)) {\n  const rules = schema[key];\n  const value = body[key];\n  if (rules.required && !value) {\n    throw new Error(`${key} is required`);\n  }\n  if (rules.min && value.length < rules.min) {\n    throw new Error(`${key} must be at least ${rules.min} characters`);\n  }\n  if (rules.regex && !rules.regex.test(value)) {\n    throw new Error(`${key} is invalid`);\n  }\n}\n\nreturn items;"
       },
       "id": "ValidateBody",
       "name": "Validate Body",
@@ -79,11 +58,7 @@ return items;"
     },
     {
       "parameters": {
-        "functionCode": "const user = items[0].json;
-if (!user) {
-  return [{ json: { statusCode: 401, body: { message: 'Invalid credentials' } }, pairedItem: 0 }];
-}
-return items;"
+        "functionCode": "const user = items[0].json;\nif (!user) {\n  return [{ json: { statusCode: 401, body: { message: 'Invalid credentials' } }, pairedItem: 0 }];\n}\nreturn items;"
       },
       "id": "EnsureUser",
       "name": "Ensure User",
@@ -93,16 +68,7 @@ return items;"
     },
     {
       "parameters": {
-        "functionCode": "const [input] = items;
-const user = input.json;
-const password = $json[\"password\"];
-const bcrypt = require('bcryptjs');
-
-if (!bcrypt.compareSync(password, user.password_hash)) {
-  throw new Error('Invalid credentials');
-}
-
-return [{ json: user }];"
+        "functionCode": "const [input] = items;\nconst user = input.json;\nconst password = $json[\"password\"];\nconst bcrypt = require('bcryptjs');\n\nif (!bcrypt.compareSync(password, user.password_hash)) {\n  throw new Error('Invalid credentials');\n}\n\nreturn [{ json: user }];"
       },
       "id": "VerifyPassword",
       "name": "Verify Password",
@@ -112,38 +78,7 @@ return [{ json: user }];"
     },
     {
       "parameters": {
-        "functionCode": "const jwt = require('jsonwebtoken');
-const dayjs = require('dayjs');
-const permissions = ($json.permissions ?? '').split(',').filter(Boolean);
-
-const accessPayload = {
-  sub: $json.id,
-  email: $json.email,
-  role: $json.role,
-  permissions,
-};
-const refreshPayload = { ...accessPayload };
-
-const accessToken = jwt.sign(accessPayload, $env.JWT_SECRET, { expiresIn: '15m' });
-const refreshToken = jwt.sign(refreshPayload, $env.JWT_REFRESH_SECRET, { expiresIn: '7d' });
-
-return [{
-  json: {
-    user: {
-      id: $json.id,
-      email: $json.email,
-      name: $json.name,
-      role: $json.role,
-      permissions,
-    },
-    tokens: {
-      accessToken,
-      refreshToken,
-      accessTokenExpiresAt: dayjs().add(15, 'minute').toISOString(),
-      refreshTokenExpiresAt: dayjs().add(7, 'day').toISOString(),
-    }
-  }
-}];"
+        "functionCode": "const jwt = require('jsonwebtoken');\nconst dayjs = require('dayjs');\nconst permissions = ($json.permissions ?? '').split(',').filter(Boolean);\n\nconst accessPayload = {\n  sub: $json.id,\n  email: $json.email,\n  role: $json.role,\n  permissions,\n};\nconst refreshPayload = { ...accessPayload };\n\nconst accessToken = jwt.sign(accessPayload, $env.JWT_SECRET, { expiresIn: '15m' });\nconst refreshToken = jwt.sign(refreshPayload, $env.JWT_REFRESH_SECRET, { expiresIn: '7d' });\n\nreturn [{\n  json: {\n    user: {\n      id: $json.id,\n      email: $json.email,\n      name: $json.name,\n      role: $json.role,\n      permissions,\n    },\n    tokens: {\n      accessToken,\n      refreshToken,\n      accessTokenExpiresAt: dayjs().add(15, 'minute').toISOString(),\n      refreshTokenExpiresAt: dayjs().add(7, 'day').toISOString(),\n    }\n  }\n}];"
       },
       "id": "IssueTokens",
       "name": "Issue Tokens",
@@ -180,17 +115,7 @@ return [{
     },
     {
       "parameters": {
-        "functionCode": "const response = items[0].json;
-return [{
-  json: response.user,
-  headers: {
-    'Set-Cookie': [
-      `accessToken=${response.tokens.accessToken}; HttpOnly; Path=/; Max-Age=900; SameSite=Strict`,
-      `refreshToken=${response.tokens.refreshToken}; HttpOnly; Path=/auth; Max-Age=${7 * 24 * 60 * 60}; SameSite=Strict`
-    ]
-  },
-  statusCode: 200
-}];"
+        "functionCode": "const response = items[0].json;\nreturn [{\n  json: response.user,\n  headers: {\n    'Set-Cookie': [\n      `accessToken=${response.tokens.accessToken}; HttpOnly; Path=/; Max-Age=900; SameSite=Strict`,\n      `refreshToken=${response.tokens.refreshToken}; HttpOnly; Path=/auth; Max-Age=${7 * 24 * 60 * 60}; SameSite=Strict`\n    ]\n  },\n  statusCode: 200\n}];"
       },
       "id": "SetCookies",
       "name": "Set Cookies",

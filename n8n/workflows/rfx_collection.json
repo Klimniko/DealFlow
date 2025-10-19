@@ -53,14 +53,7 @@
     },
     {
       "parameters": {
-        "functionCode": "const auth = $json.$auth;\nconst query = $json.request.query || {};\nconst allowed = auth.permissions.includes('*') || auth.permissions.includes('rfx.view_all') || auth.permissions.includes('rfx.view_own');\nif (!allowed) { throw new Error('Forbidden'); }\nconst page = Number(query.page) || 1;\nconst limit = Math.min(Number(query.limit) || 50, 100);\nconst offset = (page - 1) * limit;\nconst status = query.status;\nconst owner = query.owner_id === 'me' ? auth.user_id : Number(query.owner_id);\nconst clauses = ['r.deleted_at IS NULL'];\nconst params = [];
-if (status) { clauses.push('r.status = :status'); params.push({ name: 'status', value: status }); }
-if (owner) { clauses.push('r.owner_user_id = :owner'); params.push({ name: 'owner', value: owner }); }
-if (!auth.permissions.includes('rfx.view_all') && !auth.permissions.includes('*')) {
-  clauses.push('r.owner_user_id = :auth_owner');
-  params.push({ name: 'auth_owner', value: auth.user_id });
-}
-return [{ json: { page, limit, offset, where: clauses.join(' AND '), params } }];"
+        "functionCode": "const auth = $json.$auth;\nconst query = $json.request.query || {};\nconst allowed = auth.permissions.includes('*') || auth.permissions.includes('rfx.view_all') || auth.permissions.includes('rfx.view_own');\nif (!allowed) { throw new Error('Forbidden'); }\nconst page = Number(query.page) || 1;\nconst limit = Math.min(Number(query.limit) || 50, 100);\nconst offset = (page - 1) * limit;\nconst status = query.status;\nconst owner = query.owner_id === 'me' ? auth.user_id : Number(query.owner_id);\nconst clauses = ['r.deleted_at IS NULL'];\nconst params = [];\nif (status) { clauses.push('r.status = :status'); params.push({ name: 'status', value: status }); }\nif (owner) { clauses.push('r.owner_user_id = :owner'); params.push({ name: 'owner', value: owner }); }\nif (!auth.permissions.includes('rfx.view_all') && !auth.permissions.includes('*')) {\n  clauses.push('r.owner_user_id = :auth_owner');\n  params.push({ name: 'auth_owner', value: auth.user_id });\n}\nreturn [{ json: { page, limit, offset, where: clauses.join(' AND '), params } }];"
       },
       "id": "PrepareList",
       "name": "Prepare List",
