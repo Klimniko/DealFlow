@@ -12,7 +12,10 @@
       "name": "HTTP Trigger",
       "type": "n8n-nodes-base.httpTrigger",
       "typeVersion": 1,
-      "position": [200, 300]
+      "position": [
+        200,
+        300
+      ]
     },
     {
       "parameters": {
@@ -22,7 +25,10 @@
       "name": "Extract Token",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [420, 300]
+      "position": [
+        420,
+        300
+      ]
     },
     {
       "parameters": {
@@ -41,7 +47,10 @@
       "name": "Blacklist Token",
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 1,
-      "position": [640, 300]
+      "position": [
+        640,
+        300
+      ]
     },
     {
       "parameters": {
@@ -51,7 +60,10 @@
       "name": "Return Response",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [860, 300]
+      "position": [
+        860,
+        300
+      ]
     }
   ],
   "connections": {
@@ -94,5 +106,11 @@
   },
   "pinData": {},
   "staticData": null,
-  "id": "authLogoutWorkflow"
+  "id": "authLogoutWorkflow",
+  "active": false,
+  "tags": [],
+  "meta": {
+    "instanceId": "dealflow-docker"
+  },
+  "versionId": "4bfcae08-cbd3-4ebd-ae3b-915617c4d6e3"
 }

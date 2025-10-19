@@ -6,14 +6,19 @@
         "path": "rfx/:id/attachments",
         "options": {
           "responseMode": "lastNode",
-          "methods": ["POST"]
+          "methods": [
+            "POST"
+          ]
         }
       },
       "id": "HttpTrigger",
       "name": "HTTP Trigger",
       "type": "n8n-nodes-base.httpTrigger",
       "typeVersion": 1,
-      "position": [200, 320]
+      "position": [
+        200,
+        320
+      ]
     },
     {
       "parameters": {
@@ -23,7 +28,10 @@
       "name": "Auth Middleware",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [420, 320]
+      "position": [
+        420,
+        320
+      ]
     },
     {
       "parameters": {
@@ -33,7 +41,10 @@
       "name": "Validate",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [640, 320]
+      "position": [
+        640,
+        320
+      ]
     },
     {
       "parameters": {
@@ -58,7 +69,10 @@
       "name": "Update",
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 1,
-      "position": [860, 320]
+      "position": [
+        860,
+        320
+      ]
     },
     {
       "parameters": {
@@ -85,7 +99,10 @@
       "name": "Audit",
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 1,
-      "position": [1080, 320]
+      "position": [
+        1080,
+        320
+      ]
     },
     {
       "parameters": {
@@ -95,7 +112,10 @@
       "name": "Respond",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [1300, 320]
+      "position": [
+        1300,
+        320
+      ]
     }
   ],
   "connections": {
@@ -160,5 +180,11 @@
   },
   "pinData": {},
   "staticData": null,
-  "id": "rfxAttachments"
+  "id": "rfxAttachments",
+  "active": false,
+  "tags": [],
+  "meta": {
+    "instanceId": "dealflow-docker"
+  },
+  "versionId": "1804bed8-0afe-4106-86fd-9f87468ede92"
 }

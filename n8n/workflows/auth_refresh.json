@@ -12,7 +12,10 @@
       "name": "HTTP Trigger",
       "type": "n8n-nodes-base.httpTrigger",
       "typeVersion": 1,
-      "position": [200, 300]
+      "position": [
+        200,
+        300
+      ]
     },
     {
       "parameters": {
@@ -22,7 +25,10 @@
       "name": "Extract Refresh",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [420, 300]
+      "position": [
+        420,
+        300
+      ]
     },
     {
       "parameters": {
@@ -32,7 +38,10 @@
       "name": "Verify JWT",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [640, 300]
+      "position": [
+        640,
+        300
+      ]
     },
     {
       "parameters": {
@@ -51,7 +60,10 @@
       "name": "Check Blacklist",
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 1,
-      "position": [860, 200]
+      "position": [
+        860,
+        200
+      ]
     },
     {
       "parameters": {
@@ -61,7 +73,10 @@
       "name": "Ensure Not Blacklisted",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [1080, 200]
+      "position": [
+        1080,
+        200
+      ]
     },
     {
       "parameters": {
@@ -80,7 +95,10 @@
       "name": "Fetch Token Row",
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 1,
-      "position": [860, 420]
+      "position": [
+        860,
+        420
+      ]
     },
     {
       "parameters": {
@@ -99,7 +117,10 @@
       "name": "Fetch User",
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 1,
-      "position": [1080, 420]
+      "position": [
+        1080,
+        420
+      ]
     },
     {
       "parameters": {
@@ -109,7 +130,10 @@
       "name": "Issue Tokens",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [1300, 420]
+      "position": [
+        1300,
+        420
+      ]
     },
     {
       "parameters": {
@@ -140,7 +164,10 @@
       "name": "Rotate Token",
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 1,
-      "position": [1520, 420]
+      "position": [
+        1520,
+        420
+      ]
     },
     {
       "parameters": {
@@ -150,7 +177,10 @@
       "name": "Return Response",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [1740, 420]
+      "position": [
+        1740,
+        420
+      ]
     }
   ],
   "connections": {
@@ -266,5 +296,11 @@
   },
   "pinData": {},
   "staticData": null,
-  "id": "authRefreshWorkflow"
+  "id": "authRefreshWorkflow",
+  "active": false,
+  "tags": [],
+  "meta": {
+    "instanceId": "dealflow-docker"
+  },
+  "versionId": "93e155f9-891d-4223-9d95-81e5c787100a"
 }

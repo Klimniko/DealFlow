@@ -12,7 +12,10 @@
       "name": "HTTP Trigger",
       "type": "n8n-nodes-base.httpTrigger",
       "typeVersion": 1,
-      "position": [200, 400]
+      "position": [
+        200,
+        400
+      ]
     },
     {
       "parameters": {
@@ -22,7 +25,10 @@
       "name": "Validate Body",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [420, 400]
+      "position": [
+        420,
+        400
+      ]
     },
     {
       "parameters": {
@@ -41,7 +47,10 @@
       "name": "Fetch User",
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 1,
-      "position": [640, 260]
+      "position": [
+        640,
+        260
+      ]
     },
     {
       "parameters": {
@@ -54,7 +63,10 @@
       "name": "Hash Password",
       "type": "n8n-nodes-base.crypto",
       "typeVersion": 2,
-      "position": [640, 520]
+      "position": [
+        640,
+        520
+      ]
     },
     {
       "parameters": {
@@ -64,7 +76,10 @@
       "name": "Ensure User",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [860, 260]
+      "position": [
+        860,
+        260
+      ]
     },
     {
       "parameters": {
@@ -74,7 +89,10 @@
       "name": "Verify Password",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [1080, 260]
+      "position": [
+        1080,
+        260
+      ]
     },
     {
       "parameters": {
@@ -84,7 +102,10 @@
       "name": "Issue Tokens",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [1300, 260]
+      "position": [
+        1300,
+        260
+      ]
     },
     {
       "parameters": {
@@ -111,7 +132,10 @@
       "name": "Persist Refresh",
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 1,
-      "position": [1520, 260]
+      "position": [
+        1520,
+        260
+      ]
     },
     {
       "parameters": {
@@ -121,7 +145,10 @@
       "name": "Set Cookies",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [1740, 260]
+      "position": [
+        1740,
+        260
+      ]
     }
   ],
   "connections": {
@@ -215,5 +242,11 @@
   },
   "pinData": {},
   "staticData": null,
-  "id": "authLoginWorkflow"
+  "id": "authLoginWorkflow",
+  "active": false,
+  "tags": [],
+  "meta": {
+    "instanceId": "dealflow-docker"
+  },
+  "versionId": "7f679918-f8b3-4c08-b0cf-c514fa5ac52c"
 }

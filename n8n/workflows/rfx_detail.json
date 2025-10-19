@@ -6,14 +6,20 @@
         "path": "rfx/:id",
         "options": {
           "responseMode": "lastNode",
-          "methods": ["GET", "PUT"]
+          "methods": [
+            "GET",
+            "PUT"
+          ]
         }
       },
       "id": "HttpTrigger",
       "name": "HTTP Trigger",
       "type": "n8n-nodes-base.httpTrigger",
       "typeVersion": 1,
-      "position": [200, 320]
+      "position": [
+        200,
+        320
+      ]
     },
     {
       "parameters": {
@@ -23,7 +29,10 @@
       "name": "Auth Middleware",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [420, 320]
+      "position": [
+        420,
+        320
+      ]
     },
     {
       "parameters": {
@@ -33,7 +42,10 @@
       "name": "Extract",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [640, 320]
+      "position": [
+        640,
+        320
+      ]
     },
     {
       "parameters": {
@@ -49,7 +61,10 @@
       "name": "Router",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [860, 320]
+      "position": [
+        860,
+        320
+      ]
     },
     {
       "parameters": {
@@ -68,7 +83,10 @@
       "name": "Select",
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 1,
-      "position": [1080, 220]
+      "position": [
+        1080,
+        220
+      ]
     },
     {
       "parameters": {
@@ -78,7 +96,10 @@
       "name": "Respond Get",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [1300, 220]
+      "position": [
+        1300,
+        220
+      ]
     },
     {
       "parameters": {
@@ -88,7 +109,10 @@
       "name": "Validate Update",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [1080, 420]
+      "position": [
+        1080,
+        420
+      ]
     },
     {
       "parameters": {
@@ -125,7 +149,10 @@
       "name": "Update",
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 1,
-      "position": [1300, 420]
+      "position": [
+        1300,
+        420
+      ]
     },
     {
       "parameters": {
@@ -156,7 +183,10 @@
       "name": "Audit Update",
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 1,
-      "position": [1520, 420]
+      "position": [
+        1520,
+        420
+      ]
     },
     {
       "parameters": {
@@ -166,7 +196,10 @@
       "name": "Respond Update",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [1740, 420]
+      "position": [
+        1740,
+        420
+      ]
     }
   ],
   "connections": {
@@ -271,5 +304,11 @@
   },
   "pinData": {},
   "staticData": null,
-  "id": "rfxDetail"
+  "id": "rfxDetail",
+  "active": false,
+  "tags": [],
+  "meta": {
+    "instanceId": "dealflow-docker"
+  },
+  "versionId": "d0112ccb-6311-4a30-b8ff-b9524d947283"
 }
