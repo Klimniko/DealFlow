@@ -1,0 +1,98 @@
+{
+  "name": "Auth - Logout",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "auth/logout",
+        "options": {
+          "responseMode": "lastNode"
+        }
+      },
+      "id": "HttpTrigger",
+      "name": "HTTP Trigger",
+      "type": "n8n-nodes-base.httpTrigger",
+      "typeVersion": 1,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const token = $json.headers?.cookie?.match(/refreshToken=([^;]+)/)?.[1];\nif (!token) {\n  return [{ json: { message: 'Already logged out' }, statusCode: 204 }];\n}\nreturn [{ json: { refreshToken: token } }];"
+      },
+      "id": "ExtractToken",
+      "name": "Extract Token",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [420, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO token_blacklist (token_hash, expires_at) VALUES (SHA2(:token, 256), DATE_ADD(NOW(), INTERVAL 7 DAY));\nDELETE FROM refresh_tokens WHERE token_hash = SHA2(:token, 256);",
+        "values": {
+          "string": [
+            {
+              "name": "token",
+              "value": "={{$json.refreshToken}}"
+            }
+          ]
+        }
+      },
+      "id": "BlacklistToken",
+      "name": "Blacklist Token",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 1,
+      "position": [640, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "return [{ json: { success: true }, headers: { 'Set-Cookie': ['accessToken=; HttpOnly; Path=/; Max-Age=0', 'refreshToken=; HttpOnly; Path=/auth; Max-Age=0'] }, statusCode: 204 }];"
+      },
+      "id": "ReturnResponse",
+      "name": "Return Response",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [860, 300]
+    }
+  ],
+  "connections": {
+    "HTTP Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Token": {
+      "main": [
+        [
+          {
+            "node": "Blacklist Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Blacklist Token": {
+      "main": [
+        [
+          {
+            "node": "Return Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "staticData": null,
+  "id": "authLogoutWorkflow"
+}
