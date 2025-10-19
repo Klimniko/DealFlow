@@ -1,0 +1,164 @@
+{
+  "name": "RFx - Attachments",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "rfx/:id/attachments",
+        "options": {
+          "responseMode": "lastNode",
+          "methods": ["POST"]
+        }
+      },
+      "id": "HttpTrigger",
+      "name": "HTTP Trigger",
+      "type": "n8n-nodes-base.httpTrigger",
+      "typeVersion": 1,
+      "position": [200, 320]
+    },
+    {
+      "parameters": {
+        "functionCode": "const { authMiddleware } = require('../functions/authMiddleware.js');\nreturn authMiddleware(items);"
+      },
+      "id": "AuthMiddleware",
+      "name": "Auth Middleware",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [420, 320]
+    },
+    {
+      "parameters": {
+        "functionCode": "const auth = $json.$auth;\nif (!auth.permissions.includes('*') && !auth.permissions.includes('rfx.create')) { throw new Error('Forbidden'); }\nconst id = Number($json.params.id);\nif (!Number.isFinite(id)) throw new Error('Invalid ID');\nconst attachments = $json.body?.attachments;\nif (!Array.isArray(attachments)) throw new Error('Attachments must be array');\nreturn [{ json: { id, attachments } }];"
+      },
+      "id": "Validate",
+      "name": "Validate",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [640, 320]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE rfx SET attachments_url = :attachments WHERE id = :id",
+        "values": {
+          "number": [
+            {
+              "name": "id",
+              "value": "={{$json.id}}"
+            }
+          ],
+          "string": [
+            {
+              "name": "attachments",
+              "value": "={{JSON.stringify($json.attachments)}}"
+            }
+          ]
+        }
+      },
+      "id": "Update",
+      "name": "Update",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 1,
+      "position": [860, 320]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO audit_log (user_id, entity, entity_id, action, delta_json) VALUES (:user_id, 'rfx', :entity_id, 'update', JSON_OBJECT('attachments', :attachments))",
+        "values": {
+          "string": [
+            {
+              "name": "user_id",
+              "value": "={{$json.$auth.user_id}}"
+            },
+            {
+              "name": "entity_id",
+              "value": "={{$json.id}}"
+            },
+            {
+              "name": "attachments",
+              "value": "={{JSON.stringify($json.attachments)}}"
+            }
+          ]
+        }
+      },
+      "id": "Audit",
+      "name": "Audit",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 1,
+      "position": [1080, 320]
+    },
+    {
+      "parameters": {
+        "functionCode": "return [{ json: { success: true } }];"
+      },
+      "id": "Respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1300, 320]
+    }
+  ],
+  "connections": {
+    "HTTP Trigger": {
+      "main": [
+        [
+          {
+            "node": "Auth Middleware",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auth Middleware": {
+      "main": [
+        [
+          {
+            "node": "Validate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate": {
+      "main": [
+        [
+          {
+            "node": "Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update": {
+      "main": [
+        [
+          {
+            "node": "Audit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Audit": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "staticData": null,
+  "id": "rfxAttachments"
+}
