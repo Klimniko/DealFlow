@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { authenticate } from '../middleware/authenticate.js';
 import { requireAnyPermission, requirePermission } from '../middleware/requirePermission.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+import type { Permission } from '../users/user.types.js';
 import {
   listOrganizations,
   createOrganization,
@@ -13,6 +14,8 @@ import {
 } from '../organizations/organization.repository.js';
 
 const router = Router();
+
+const organizationAccessPermissions: readonly Permission[] = ['rfx.create', 'rfx.view_own', 'rfx.view_all'];
 
 const listSchema = z.object({
   type: z.enum(['client', 'vendor']).optional(),
@@ -32,7 +35,7 @@ const payloadSchema = z.object({
 router.get(
   '/',
   authenticate,
-  requireAnyPermission(['rfx.create', 'rfx.view_own', 'rfx.view_all']),
+  requireAnyPermission(organizationAccessPermissions),
   asyncHandler(async (req, res) => {
     const params = listSchema.parse(req.query);
     const result = await listOrganizations({
@@ -58,7 +61,7 @@ router.post(
 router.get(
   '/:id',
   authenticate,
-  requireAnyPermission(['rfx.create', 'rfx.view_own', 'rfx.view_all']),
+  requireAnyPermission(organizationAccessPermissions),
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
     const organization = await getOrganizationById(id);

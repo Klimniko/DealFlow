@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { authenticate } from '../middleware/authenticate.js';
 import { requireAnyPermission, requirePermission } from '../middleware/requirePermission.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+import type { Permission } from '../users/user.types.js';
 import {
   listRfx,
   getRfxById,
@@ -12,6 +13,9 @@ import {
 } from '../rfx/rfx.repository.js';
 
 const router = Router();
+
+const rfxViewPermissions: readonly Permission[] = ['rfx.view_all', 'rfx.view_own', 'rfx.create'];
+const rfxManagePermissions: readonly Permission[] = ['rfx.create', 'rfx.view_all'];
 
 const listSchema = z.object({
   status: z.enum(['draft', 'open', 'submitted', 'won', 'lost', 'cancelled', 'archived']).optional(),
@@ -35,7 +39,7 @@ const payloadSchema = z.object({
 router.get(
   '/',
   authenticate,
-  requireAnyPermission(['rfx.view_all', 'rfx.view_own', 'rfx.create']),
+  requireAnyPermission(rfxViewPermissions),
   asyncHandler(async (req, res) => {
     const params = listSchema.parse(req.query);
     let ownerId: number | undefined;
@@ -76,7 +80,7 @@ router.post(
 router.get(
   '/:id',
   authenticate,
-  requireAnyPermission(['rfx.view_all', 'rfx.view_own', 'rfx.create']),
+  requireAnyPermission(rfxViewPermissions),
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
     const record = await getRfxById(id);
@@ -97,7 +101,7 @@ router.get(
 router.put(
   '/:id',
   authenticate,
-  requireAnyPermission(['rfx.create', 'rfx.view_all']),
+  requireAnyPermission(rfxManagePermissions),
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
     const payload = payloadSchema.parse(req.body);
@@ -124,7 +128,7 @@ router.put(
 router.post(
   '/:id/attachments',
   authenticate,
-  requireAnyPermission(['rfx.create', 'rfx.view_all']),
+  requireAnyPermission(rfxManagePermissions),
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
     const schema = z.object({ attachments: z.array(z.string()) });

@@ -1,6 +1,7 @@
+import type { ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { pool } from '../db.js';
 
-export type OrganizationRecord = {
+export interface OrganizationRecord extends RowDataPacket {
   id: number;
   name: string;
   type: 'client' | 'vendor';
@@ -10,7 +11,7 @@ export type OrganizationRecord = {
   notes: string | null;
   created_at: string;
   updated_at: string;
-};
+}
 
 export async function listOrganizations({
   type,
@@ -36,7 +37,7 @@ export async function listOrganizations({
      LIMIT ? OFFSET ?`,
     [...params, limit, offset],
   );
-  const [countRows] = await pool.query<Array<{ total: number }>>(
+  const [countRows] = await pool.query<Array<{ total: number } & RowDataPacket>>(
     `SELECT COUNT(*) as total FROM organizations ${where}`,
     params,
   );
@@ -69,7 +70,7 @@ export type OrganizationPayload = {
 };
 
 export async function createOrganization(payload: OrganizationPayload) {
-  const [result] = await pool.query<{ insertId: number }>(
+  const [result] = await pool.query<ResultSetHeader>(
     `INSERT INTO organizations (name, type, website, country_code, timezone, notes)
      VALUES (?, ?, ?, ?, ?, ?)`,
     [payload.name, payload.type, payload.website ?? null, payload.country_code ?? null, payload.timezone ?? null, payload.notes ?? null],

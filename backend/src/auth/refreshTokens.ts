@@ -1,13 +1,14 @@
 import crypto from 'node:crypto';
+import type { ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { pool } from '../db.js';
 
-type RefreshTokenRow = {
+interface RefreshTokenRow extends RowDataPacket {
   id: number;
   user_id: number;
   token_hash: string;
   expires_at: Date;
   rotated_at: Date | null;
-};
+}
 
 function hashToken(token: string) {
   return crypto.createHash('sha256').update(token).digest('hex');
@@ -36,7 +37,7 @@ export async function rotateRefreshToken(currentToken: string, newToken: string,
       return false;
     }
     const current = rows[0];
-    const [result] = await conn.query<{ insertId: number }>(
+    const [result] = await conn.query<ResultSetHeader>(
       `INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)`,
       [current.user_id, newHash, expiresAt],
     );

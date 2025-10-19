@@ -1,6 +1,7 @@
+import type { ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { pool } from '../db.js';
 
-export type RfxRecord = {
+export interface RfxRecord {
   id: number;
   org_id: number;
   type: 'rfi' | 'rfp' | 'rfq';
@@ -12,7 +13,21 @@ export type RfxRecord = {
   attachments_url: string[] | null;
   created_at: string;
   updated_at: string;
-};
+}
+
+interface RfxRow extends RowDataPacket {
+  id: number;
+  org_id: number;
+  type: 'rfi' | 'rfp' | 'rfq';
+  title: string;
+  status: 'draft' | 'open' | 'submitted' | 'won' | 'lost' | 'cancelled' | 'archived';
+  due_at: string | null;
+  owner_user_id: number;
+  notes: string | null;
+  attachments_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
 export type RfxPayload = {
   org_id: number;
@@ -25,7 +40,7 @@ export type RfxPayload = {
   attachments?: string[] | null;
 };
 
-function mapRow(row: any): RfxRecord {
+function mapRow(row: RfxRow): RfxRecord {
   return {
     ...row,
     attachments_url: row.attachments_url ? JSON.parse(row.attachments_url) : null,
@@ -61,7 +76,7 @@ export async function listRfx({
     params.push(orgId);
   }
   const where = whereClauses.length ? `WHERE ${whereClauses.join(' AND ')}` : '';
-  const [rows] = await pool.query<any[]>(
+  const [rows] = await pool.query<RfxRow[]>(
     `SELECT id, org_id, type, title, status, due_at, owner_user_id, notes, attachments_url, created_at, updated_at
      FROM rfx
      ${where}
@@ -69,7 +84,7 @@ export async function listRfx({
      LIMIT ? OFFSET ?`,
     [...params, limit, offset],
   );
-  const [countRows] = await pool.query<Array<{ total: number }>>(
+  const [countRows] = await pool.query<Array<{ total: number } & RowDataPacket>>(
     `SELECT COUNT(*) as total FROM rfx ${where}`,
     params,
   );
@@ -82,7 +97,7 @@ export async function listRfx({
 }
 
 export async function getRfxById(id: number) {
-  const [rows] = await pool.query<any[]>(
+  const [rows] = await pool.query<RfxRow[]>(
     `SELECT id, org_id, type, title, status, due_at, owner_user_id, notes, attachments_url, created_at, updated_at
      FROM rfx
      WHERE id = ? AND deleted_at IS NULL
@@ -96,7 +111,7 @@ export async function getRfxById(id: number) {
 }
 
 export async function createRfxRecord(payload: RfxPayload) {
-  const [result] = await pool.query<{ insertId: number }>(
+  const [result] = await pool.query<ResultSetHeader>(
     `INSERT INTO rfx (org_id, type, title, status, due_at, owner_user_id, notes, attachments_url)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)` ,
     [

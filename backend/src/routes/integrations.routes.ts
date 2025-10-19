@@ -3,9 +3,12 @@ import { z } from 'zod';
 import { authenticate } from '../middleware/authenticate.js';
 import { requireAnyPermission } from '../middleware/requirePermission.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+import type { Permission } from '../users/user.types.js';
 import { config } from '../config.js';
 
 const router = Router();
+
+const proposalPermissions: readonly Permission[] = ['rfx.create', 'rfx.view_all', 'estimate.create'];
 
 const payloadSchema = z.object({
   summary: z.string().min(10),
@@ -17,7 +20,7 @@ const payloadSchema = z.object({
 router.post(
   '/proposal',
   authenticate,
-  requireAnyPermission(['rfx.create', 'rfx.view_all', 'estimate.create']),
+  requireAnyPermission(proposalPermissions),
   asyncHandler(async (req, res) => {
     if (!config.N8N_PROPOSAL_WEBHOOK_URL) {
       return res.status(503).json({ message: 'AI provider unavailable' });

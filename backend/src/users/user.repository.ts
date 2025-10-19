@@ -1,5 +1,21 @@
+import type { RowDataPacket } from 'mysql2/promise';
 import { pool } from '../db.js';
 import type { AuthUser, Permission } from './user.types.js';
+
+interface UserRow extends RowDataPacket {
+  id: number;
+  email: string;
+  name: string;
+  role: string;
+  role_id: number;
+  password_hash?: string;
+  active: number;
+  org_id: number | null;
+}
+
+interface PermissionRow extends RowDataPacket {
+  permission: Permission;
+}
 
 const permissionQuery = `
   SELECT rp.permission
@@ -8,18 +24,7 @@ const permissionQuery = `
 `;
 
 export async function findUserByEmail(email: string): Promise<(AuthUser & { password_hash: string }) | null> {
-  const [rows] = await pool.query<
-    Array<{
-      id: number;
-      email: string;
-      name: string;
-      role: string;
-      role_id: number;
-      password_hash: string;
-      active: number;
-      org_id: number | null;
-    }>
-  >(
+  const [rows] = await pool.query<UserRow[]>(
     `SELECT u.id, u.email, u.name, u.password_hash, u.active, u.org_id, r.name AS role, r.id AS role_id
      FROM users u
      INNER JOIN roles r ON r.id = u.role_id
@@ -37,7 +42,7 @@ export async function findUserByEmail(email: string): Promise<(AuthUser & { pass
     return null;
   }
 
-  const [permissionRows] = await pool.query<Array<{ permission: Permission }>>(permissionQuery, [user.role_id]);
+  const [permissionRows] = await pool.query<PermissionRow[]>(permissionQuery, [user.role_id]);
   const permissions = permissionRows.map((row) => row.permission);
 
   return {
@@ -52,17 +57,7 @@ export async function findUserByEmail(email: string): Promise<(AuthUser & { pass
 }
 
 export async function findUserById(id: number): Promise<AuthUser | null> {
-  const [rows] = await pool.query<
-    Array<{
-      id: number;
-      email: string;
-      name: string;
-      role: string;
-      role_id: number;
-      active: number;
-      org_id: number | null;
-    }>
-  >(
+  const [rows] = await pool.query<UserRow[]>(
     `SELECT u.id, u.email, u.name, u.active, u.org_id, r.name AS role, r.id AS role_id
      FROM users u
      INNER JOIN roles r ON r.id = u.role_id
@@ -80,7 +75,7 @@ export async function findUserById(id: number): Promise<AuthUser | null> {
     return null;
   }
 
-  const [permissionRows] = await pool.query<Array<{ permission: Permission }>>(permissionQuery, [user.role_id]);
+  const [permissionRows] = await pool.query<PermissionRow[]>(permissionQuery, [user.role_id]);
   const permissions = permissionRows.map((row) => row.permission);
 
   return {

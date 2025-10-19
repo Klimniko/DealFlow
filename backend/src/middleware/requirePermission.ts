@@ -1,11 +1,12 @@
 import type { RequestHandler } from 'express';
+import type { Permission } from '../users/user.types.js';
 import { HttpError } from '../utils/errors.js';
 
-function hasPermission(permissions: string[] | undefined, permission: string) {
+function hasPermission(permissions: Permission[] | undefined, permission: Permission) {
   return permissions?.includes('*') || permissions?.includes(permission);
 }
 
-export function requirePermission(permission: string): RequestHandler {
+export function requirePermission(permission: Permission): RequestHandler {
   return (req, _res, next) => {
     if (!req.user) {
       return next(new HttpError(401, 'Unauthorized'));
@@ -17,7 +18,7 @@ export function requirePermission(permission: string): RequestHandler {
   };
 }
 
-export function requireAnyPermission(permissions: string[]): RequestHandler {
+export function requireAnyPermission(permissions: Permission[]): RequestHandler {
   return (req, _res, next) => {
     if (!req.user) {
       return next(new HttpError(401, 'Unauthorized'));
