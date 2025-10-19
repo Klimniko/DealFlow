@@ -1,0 +1,306 @@
+{
+  "name": "Auth - Refresh",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "auth/refresh",
+        "options": {
+          "responseMode": "lastNode"
+        }
+      },
+      "id": "HttpTrigger",
+      "name": "HTTP Trigger",
+      "type": "n8n-nodes-base.httpTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const token = $json.headers?.cookie?.match(/refreshToken=([^;]+)/)?.[1];\nif (!token) {\n  throw new Error('Missing refresh token');\n}\nreturn [{ json: { refreshToken: token } }];"
+      },
+      "id": "ExtractRefresh",
+      "name": "Extract Refresh",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        420,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const jwt = require('jsonwebtoken');\ntry {\n  const decoded = jwt.verify($json.refreshToken, $env.JWT_REFRESH_SECRET);\n  return [{ json: decoded }];\n} catch (error) {\n  throw new Error('Invalid refresh token');\n}"
+      },
+      "id": "VerifyJWT",
+      "name": "Verify JWT",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        640,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id FROM token_blacklist WHERE token_hash = SHA2(:token, 256) AND expires_at > NOW()",
+        "values": {
+          "string": [
+            {
+              "name": "token",
+              "value": "={{$json.refreshToken}}"
+            }
+          ]
+        }
+      },
+      "id": "CheckBlacklist",
+      "name": "Check Blacklist",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 1,
+      "position": [
+        860,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "if (items[0].json.length > 0) {\n  throw new Error('Token has been revoked');\n}\nreturn items;"
+      },
+      "id": "EnsureNotBlacklisted",
+      "name": "Ensure Not Blacklisted",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1080,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT user_id, expires_at FROM refresh_tokens WHERE token_hash = SHA2(:token, 256) AND expires_at > NOW() ORDER BY issued_at DESC LIMIT 1",
+        "values": {
+          "string": [
+            {
+              "name": "token",
+              "value": "={{$json.refreshToken}}"
+            }
+          ]
+        }
+      },
+      "id": "FetchTokenRow",
+      "name": "Fetch Token Row",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 1,
+      "position": [
+        860,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT u.id, u.email, u.name, r.name as role, GROUP_CONCAT(rp.permission) AS permissions\nFROM users u\nJOIN roles r ON r.id = u.role_id\nLEFT JOIN role_permissions rp ON rp.role_id = r.id\nWHERE u.id = :user_id\nGROUP BY u.id, u.email, u.name, r.name",
+        "values": {
+          "string": [
+            {
+              "name": "user_id",
+              "value": "={{$json[0].user_id}}"
+            }
+          ]
+        }
+      },
+      "id": "FetchUser",
+      "name": "Fetch User",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 1,
+      "position": [
+        1080,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const jwt = require('jsonwebtoken');\nconst dayjs = require('dayjs');\nconst user = items[0].json;\nconst permissions = (user.permissions ?? '').split(',').filter(Boolean);\nconst accessPayload = { sub: user.id, email: user.email, role: user.role, permissions };\nconst refreshPayload = { ...accessPayload };\nconst accessToken = jwt.sign(accessPayload, $env.JWT_SECRET, { expiresIn: '15m' });\nconst refreshToken = jwt.sign(refreshPayload, $env.JWT_REFRESH_SECRET, { expiresIn: '7d' });\nreturn [{ json: { user: { id: user.id, email: user.email, name: user.name, role: user.role, permissions }, tokens: { accessToken, refreshToken, accessTokenExpiresAt: dayjs().add(15, 'minute').toISOString(), refreshTokenExpiresAt: dayjs().add(7, 'day').toISOString() } } }];"
+      },
+      "id": "IssueTokens",
+      "name": "Issue Tokens",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE refresh_tokens SET rotated_at = NOW(), replaced_by = LAST_INSERT_ID() WHERE token_hash = SHA2(:token, 256);\nINSERT INTO refresh_tokens (user_id, token_hash, issued_at, expires_at) VALUES (:user_id, SHA2(:new_token, 256), NOW(), :expires_at);",
+        "values": {
+          "string": [
+            {
+              "name": "token",
+              "value": "={{$json[\"refreshToken\"]}}"
+            },
+            {
+              "name": "user_id",
+              "value": "={{$json[\"user\"][\"id\"]}}"
+            },
+            {
+              "name": "new_token",
+              "value": "={{$json[\"tokens\"][\"refreshToken\"]}}"
+            },
+            {
+              "name": "expires_at",
+              "value": "={{$json[\"tokens\"][\"refreshTokenExpiresAt\"]}}"
+            }
+          ]
+        }
+      },
+      "id": "RotateToken",
+      "name": "Rotate Token",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 1,
+      "position": [
+        1520,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const response = items[0].json;\nreturn [{ json: { accessTokenExpiresAt: response.tokens.accessTokenExpiresAt }, headers: { 'Set-Cookie': [ `accessToken=${response.tokens.accessToken}; HttpOnly; Path=/; Max-Age=900; SameSite=Strict`, `refreshToken=${response.tokens.refreshToken}; HttpOnly; Path=/auth; Max-Age=${7 * 24 * 60 * 60}; SameSite=Strict` ] }, statusCode: 200 }];"
+      },
+      "id": "ReturnResponse",
+      "name": "Return Response",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1740,
+        420
+      ]
+    }
+  ],
+  "connections": {
+    "HTTP Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Refresh",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Refresh": {
+      "main": [
+        [
+          {
+            "node": "Verify JWT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify JWT": {
+      "main": [
+        [
+          {
+            "node": "Check Blacklist",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "FetchTokenRow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Blacklist": {
+      "main": [
+        [
+          {
+            "node": "Ensure Not Blacklisted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ensure Not Blacklisted": {
+      "main": [
+        [
+          {
+            "node": "FetchTokenRow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FetchTokenRow": {
+      "main": [
+        [
+          {
+            "node": "Fetch User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch User": {
+      "main": [
+        [
+          {
+            "node": "Issue Tokens",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Issue Tokens": {
+      "main": [
+        [
+          {
+            "node": "Rotate Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rotate Token": {
+      "main": [
+        [
+          {
+            "node": "Return Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "staticData": null,
+  "id": "authRefreshWorkflow",
+  "active": false,
+  "tags": [],
+  "meta": {
+    "instanceId": "dealflow-docker"
+  },
+  "versionId": "93e155f9-891d-4223-9d95-81e5c787100a"
+}
