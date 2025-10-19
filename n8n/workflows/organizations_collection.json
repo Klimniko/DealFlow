@@ -1,0 +1,367 @@
+{
+  "name": "Organizations - Collection",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "organizations",
+        "options": {
+          "responseMode": "lastNode",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        }
+      },
+      "id": "HttpTrigger",
+      "name": "HTTP Trigger",
+      "type": "n8n-nodes-base.httpTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const { authMiddleware } = require('../functions/authMiddleware.js');\nreturn authMiddleware(items);"
+      },
+      "id": "AuthMiddleware",
+      "name": "Auth Middleware",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        420,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const method = $json.request.method;\nreturn [{ json: { method } }];"
+      },
+      "id": "ExtractMethod",
+      "name": "Extract Method",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        640,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "propertyName": "method",
+        "rules": [
+          {
+            "operation": "equal",
+            "value": "GET"
+          }
+        ]
+      },
+      "id": "Router",
+      "name": "Router",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        860,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const auth = $json.$auth;\nif (!auth.permissions.includes('*') && !auth.permissions.includes('rfx.view_own')) {\n  throw new Error('Forbidden');\n}\nconst query = $json.request.query || {};\nconst page = Number(query.page) || 1;\nconst limit = Math.min(Number(query.limit) || 50, 100);\nconst offset = (page - 1) * limit;\nconst params = [];\nlet where = 'deleted_at IS NULL';\nif (query.type) {\n  where += ' AND type = :type';\n  params.push({ name: 'type', value: query.type });\n}\nreturn [{ json: { page, limit, offset, where, params } }];"
+      },
+      "id": "PrepareList",
+      "name": "Prepare List",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1080,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT SQL_CALC_FOUND_ROWS id, name, type, website, country_code, timezone, notes, created_at, updated_at FROM organizations WHERE {{ $json.where }} ORDER BY created_at DESC LIMIT :limit OFFSET :offset",
+        "values": {
+          "number": [
+            {
+              "name": "limit",
+              "value": "={{$json.limit}}"
+            },
+            {
+              "name": "offset",
+              "value": "={{$json.offset}}"
+            }
+          ],
+          "string": "={{$json.params}}"
+        }
+      },
+      "id": "ListQuery",
+      "name": "List Query",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT FOUND_ROWS() as total"
+      },
+      "id": "TotalQuery",
+      "name": "Total Query",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 1,
+      "position": [
+        1520,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "return [{ json: { data: items[0].json, total: items[1].json[0].total, page: $json.page, limit: $json.limit } }];"
+      },
+      "id": "RespondList",
+      "name": "Respond List",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1740,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const auth = $json.$auth;\nif (!auth.permissions.includes('*') && !auth.permissions.includes('rfx.create')) {\n  throw new Error('Forbidden');\n}\nconst body = $json.body;\nconst schema = ['name','type'];\nfor (const field of schema) {\n  if (!body?.[field]) {\n    throw new Error(`Missing field ${field}`);\n  }\n}\nreturn [{ json: body }];"
+      },
+      "id": "ValidateCreate",
+      "name": "Validate Create",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1080,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO organizations (name, type, website, country_code, timezone, notes) VALUES (:name, :type, :website, :country_code, :timezone, :notes)"
+      },
+      "id": "InsertOrganization",
+      "name": "Insert Organization",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM organizations WHERE id = LAST_INSERT_ID()"
+      },
+      "id": "FetchInserted",
+      "name": "Fetch Inserted",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 1,
+      "position": [
+        1520,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO audit_log (user_id, entity, entity_id, action, delta_json) VALUES (:user_id, 'organizations', :entity_id, 'create', JSON_OBJECT('name', :name, 'type', :type))",
+        "values": {
+          "string": [
+            {
+              "name": "user_id",
+              "value": "={{$json.$auth.user_id}}"
+            },
+            {
+              "name": "entity_id",
+              "value": "={{$json[0].id}}"
+            },
+            {
+              "name": "name",
+              "value": "={{$json[0].name}}"
+            },
+            {
+              "name": "type",
+              "value": "={{$json[0].type}}"
+            }
+          ]
+        }
+      },
+      "id": "AuditCreate",
+      "name": "Audit Create",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 1,
+      "position": [
+        1740,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "return [{ json: items[0].json[0], statusCode: 201 }];"
+      },
+      "id": "RespondCreate",
+      "name": "Respond Create",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1960,
+        440
+      ]
+    }
+  ],
+  "connections": {
+    "HTTP Trigger": {
+      "main": [
+        [
+          {
+            "node": "Auth Middleware",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auth Middleware": {
+      "main": [
+        [
+          {
+            "node": "Extract Method",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Method": {
+      "main": [
+        [
+          {
+            "node": "Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Router": {
+      "main": [
+        [
+          {
+            "node": "Prepare List",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Validate Create",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare List": {
+      "main": [
+        [
+          {
+            "node": "List Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Query": {
+      "main": [
+        [
+          {
+            "node": "Total Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Total Query": {
+      "main": [
+        [
+          {
+            "node": "Respond List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Create": {
+      "main": [
+        [
+          {
+            "node": "Insert Organization",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Organization": {
+      "main": [
+        [
+          {
+            "node": "Fetch Inserted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Inserted": {
+      "main": [
+        [
+          {
+            "node": "Audit Create",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Audit Create": {
+      "main": [
+        [
+          {
+            "node": "Respond Create",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "staticData": null,
+  "id": "organizationsCollection",
+  "active": false,
+  "tags": [],
+  "meta": {
+    "instanceId": "dealflow-docker"
+  },
+  "versionId": "08aa1005-8a85-42c4-adb3-1fce67ffd142"
+}

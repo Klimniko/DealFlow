@@ -1,0 +1,252 @@
+{
+  "name": "Auth - Login",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "auth/login",
+        "options": {
+          "responseMode": "lastNode"
+        }
+      },
+      "id": "HttpTrigger",
+      "name": "HTTP Trigger",
+      "type": "n8n-nodes-base.httpTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const schema = {\n  email: { required: true, regex: /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/ },\n  password: { required: true, min: 8 },\n};\n\nconst body = items[0].json;\n\nfor (const key of Object.keys(schema)) {\n  const rules = schema[key];\n  const value = body[key];\n  if (rules.required && !value) {\n    throw new Error(`${key} is required`);\n  }\n  if (rules.min && value.length < rules.min) {\n    throw new Error(`${key} must be at least ${rules.min} characters`);\n  }\n  if (rules.regex && !rules.regex.test(value)) {\n    throw new Error(`${key} is invalid`);\n  }\n}\n\nreturn items;"
+      },
+      "id": "ValidateBody",
+      "name": "Validate Body",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        420,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT u.id, u.email, u.name, u.password_hash, u.active, r.name as role, GROUP_CONCAT(rp.permission) AS permissions\nFROM users u\nJOIN roles r ON r.id = u.role_id\nLEFT JOIN role_permissions rp ON rp.role_id = r.id\nWHERE u.email = :email AND u.deleted_at IS NULL\nGROUP BY u.id, u.email, u.name, u.password_hash, u.active, r.name",
+        "values": {
+          "string": [
+            {
+              "name": "email",
+              "value": "={{$json[\"email\"]}}"
+            }
+          ]
+        }
+      },
+      "id": "FetchUser",
+      "name": "Fetch User",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 1,
+      "position": [
+        640,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "hash",
+        "algorithm": "bcrypt",
+        "value": "={{$json[\"password\"]}}",
+        "saltOrRounds": 12
+      },
+      "id": "HashPassword",
+      "name": "Hash Password",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [
+        640,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const user = items[0].json;\nif (!user) {\n  return [{ json: { statusCode: 401, body: { message: 'Invalid credentials' } }, pairedItem: 0 }];\n}\nreturn items;"
+      },
+      "id": "EnsureUser",
+      "name": "Ensure User",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        860,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const [input] = items;\nconst user = input.json;\nconst password = $json[\"password\"];\nconst bcrypt = require('bcryptjs');\n\nif (!bcrypt.compareSync(password, user.password_hash)) {\n  throw new Error('Invalid credentials');\n}\n\nreturn [{ json: user }];"
+      },
+      "id": "VerifyPassword",
+      "name": "Verify Password",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1080,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const jwt = require('jsonwebtoken');\nconst dayjs = require('dayjs');\nconst permissions = ($json.permissions ?? '').split(',').filter(Boolean);\n\nconst accessPayload = {\n  sub: $json.id,\n  email: $json.email,\n  role: $json.role,\n  permissions,\n};\nconst refreshPayload = { ...accessPayload };\n\nconst accessToken = jwt.sign(accessPayload, $env.JWT_SECRET, { expiresIn: '15m' });\nconst refreshToken = jwt.sign(refreshPayload, $env.JWT_REFRESH_SECRET, { expiresIn: '7d' });\n\nreturn [{\n  json: {\n    user: {\n      id: $json.id,\n      email: $json.email,\n      name: $json.name,\n      role: $json.role,\n      permissions,\n    },\n    tokens: {\n      accessToken,\n      refreshToken,\n      accessTokenExpiresAt: dayjs().add(15, 'minute').toISOString(),\n      refreshTokenExpiresAt: dayjs().add(7, 'day').toISOString(),\n    }\n  }\n}];"
+      },
+      "id": "IssueTokens",
+      "name": "Issue Tokens",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO refresh_tokens (user_id, token_hash, issued_at, expires_at) VALUES (:user_id, SHA2(:token, 256), NOW(), :expires_at)",
+        "values": {
+          "string": [
+            {
+              "name": "user_id",
+              "value": "={{$json[\"user\"][\"id\"]}}"
+            },
+            {
+              "name": "token",
+              "value": "={{$json[\"tokens\"][\"refreshToken\"]}}"
+            },
+            {
+              "name": "expires_at",
+              "value": "={{$json[\"tokens\"][\"refreshTokenExpiresAt\"]}}"
+            }
+          ]
+        }
+      },
+      "id": "PersistRefresh",
+      "name": "Persist Refresh",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 1,
+      "position": [
+        1520,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const response = items[0].json;\nreturn [{\n  json: response.user,\n  headers: {\n    'Set-Cookie': [\n      `accessToken=${response.tokens.accessToken}; HttpOnly; Path=/; Max-Age=900; SameSite=Strict`,\n      `refreshToken=${response.tokens.refreshToken}; HttpOnly; Path=/auth; Max-Age=${7 * 24 * 60 * 60}; SameSite=Strict`\n    ]\n  },\n  statusCode: 200\n}];"
+      },
+      "id": "SetCookies",
+      "name": "Set Cookies",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1740,
+        260
+      ]
+    }
+  ],
+  "connections": {
+    "HTTP Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Body": {
+      "main": [
+        [
+          {
+            "node": "Fetch User",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Hash Password",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch User": {
+      "main": [
+        [
+          {
+            "node": "Ensure User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ensure User": {
+      "main": [
+        [
+          {
+            "node": "Verify Password",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Password": {
+      "main": [
+        [
+          {
+            "node": "Issue Tokens",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Issue Tokens": {
+      "main": [
+        [
+          {
+            "node": "Persist Refresh",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Persist Refresh": {
+      "main": [
+        [
+          {
+            "node": "Set Cookies",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "staticData": null,
+  "id": "authLoginWorkflow",
+  "active": false,
+  "tags": [],
+  "meta": {
+    "instanceId": "dealflow-docker"
+  },
+  "versionId": "7f679918-f8b3-4c08-b0cf-c514fa5ac52c"
+}
