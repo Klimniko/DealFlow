@@ -1,71 +1,73 @@
 # DealFlow Monorepo
 
-This repository contains the DealFlow frontend (React), n8n workflows, and MySQL schema migrations. The project now ships with a Docker Compose setup so you can run the entire stack locally with a single command on Windows, macOS, or Linux.
+This repository bundles the DealFlow React frontend, a Node.js API, reusable n8n workflows, and MySQL migrations. The project ships with a Docker Compose setup tested on Windows 11 Pro so you can run the full stack (database, API, n8n, and frontend) with a single command.
 
 ## Prerequisites
 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) 4.0 or later (tested on Windows 11 Pro)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) 4.0 or later
 - At least 6 GB of free RAM while the stack is running
 
 ## Quick Start
 
 1. **Configure environment variables**
 
-   Copy `.env.docker` (already tracked) to a personal override if you need to change any secrets or ports:
+   The repo includes a working `.env.docker`. Adjust the values if you need different ports or secrets:
 
    ```powershell
    Copy-Item .env.docker .env.local
    ```
 
-   Update the values in `.env.local` and then point Docker Compose at it by setting `COMPOSE_ENV_FILE=.env.local` or passing `--env-file`. The defaults work out of the box for local testing.
+   Then either set `COMPOSE_ENV_FILE=.env.local` or run `docker compose --env-file .env.local ...` to use your overrides. The default `.env.docker` is safe to use for local testing out of the box.
 
-2. **(Optional) Configure automatic source sync**
+2. **(Optional) Configure source sync strategy**
 
-   By default Docker Compose downloads the repository declared by `APP_BUILD_CONTEXT` and hands it to both image builds. The
-   Dockerfiles themselves will then clone that same repository (using `APP_GIT_REPO`/`APP_GIT_REF`) into the container images so
-   n8n and the frontend have consistent sources. Update the URLs in `.env.docker` with your actual Git remote. If you prefer to
-   build from an existing checkout on your machine, change `APP_BUILD_CONTEXT=.` and set `APP_SOURCE_STRATEGY=local` before
-   running `docker compose`.
+   The Dockerfiles embed a `sync-source.sh` helper. By default we copy the local checkout (`APP_SOURCE_STRATEGY=local`) into each build so only this folder is required on the host. If you prefer the images to clone a remote Git repository, set `APP_SOURCE_STRATEGY=git` and specify `APP_GIT_REPO` / `APP_GIT_REF` in the build args before running Compose.
 
-3. **Build and start the stack**
+3. **Build and start everything**
 
    ```powershell
    docker compose --env-file .env.docker up --build
    ```
 
-   The command will:
+   Compose will:
 
-   - Launch MySQL 8.0 and run `migrations/01_initial_schema.sql` automatically.
-   - Clone the DealFlow repository (when `APP_SOURCE_STRATEGY=git`), then build an n8n image with the required custom libraries (`jsonwebtoken`, `mysql2`), import all workflows on boot, and start the n8n server on <http://localhost:5678>.
-   - Clone the DealFlow repository (when `APP_SOURCE_STRATEGY=git`), install frontend dependencies, and start the Vite dev server on <http://localhost:5173> with hot reloading enabled.
+   - Start MySQL 8.0, run `migrations/01_initial_schema.sql`, and expose it on `localhost:3307`.
+   - Build the Node.js API service, install dependencies, compile TypeScript, and run it on `http://localhost:4000` with JWT + cookie auth, RBAC enforcement, and MySQL connectivity.
+   - Build the Vite frontend (React + TypeScript) and run it on `http://localhost:5173` with hot reload.
+   - Build n8n with the bundled workflows/functions and expose it on `http://localhost:5678` for AI-driven proposal generation via webhook.
 
-3. **Log in**
+4. **Log in**
 
-   After the containers are healthy, open <http://localhost:5173>. Use the seeded admin account:
+   Once all services report healthy, open <http://localhost:5173> and authenticate with the seeded admin user:
 
    - **Email:** `admin@dealflow.com`
-   - **Password:** `password` (change via n8n once user management workflow is connected)
+   - **Password:** `password`
 
 ## Services & Ports
 
-| Service   | Host Port | Container Port | Notes |
-|-----------|-----------|----------------|-------|
-| Frontend  | 5173      | 5173           | Vite dev server with hot reload |
-| n8n       | 5678      | 5678           | REST API & workflow UI |
-| MySQL     | 3307      | 3306           | Change `DB_PORT_HOST` in `.env.docker` if 3307 is in use |
+| Service  | Host Port | Container Port | Notes |
+|----------|-----------|----------------|-------|
+| API      | 4000      | 4000           | Node.js backend providing auth, Organizations, RFx, and proposal webhook endpoints |
+| Frontend | 5173      | 5173           | Vite dev server with hot reload |
+| n8n      | 5678      | 5678           | Used for AI workflows; the API forwards proposal requests here |
+| MySQL    | 3307      | 3306           | Change `DB_PORT_HOST` in `.env.docker` if 3307 is occupied |
 
-All services share the `dealflow` Docker network so you can use container hostnames (`db`, `n8n`) in code and workflows.
+All containers share the `dealflow` Docker network so you can reference them by hostname (`api`, `db`, `n8n`) from within the cluster.
+
+## Environment Overview
+
+Key variables defined in `.env.docker`:
+
+- **Database:** `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_ROOT_PASSWORD`
+- **API:** `API_PORT`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `ACCESS_TOKEN_TTL`, `REFRESH_TOKEN_TTL`, `CORS_ORIGIN`, `N8N_PROPOSAL_WEBHOOK_URL`
+- **Frontend:** `VITE_API_URL` (defaults to `http://localhost:4000`)
+- **n8n:** `N8N_HOST`, `N8N_WEBHOOK_URL`, `N8N_ENCRYPTION_KEY`
+
+Update these as needed for your environment before running Compose.
 
 ## Source Synchronisation
 
-During the image build phase the `sync-source.sh` helper either copies the local repository into the image (strategy `local`) or
-clones the remote Git repository/branch specified in `.env.docker` (strategy `git`). The helper script is baked into each image
-so even a minimal host checkout that only contains `docker-compose.yml` can bootstrap successfully. The synced contents are
-staged in `/workspace`, giving both the frontend build and the n8n bootstrap command a consistent source tree inside the
-containers.
-
-Custom n8n helpers from `n8n/functions` and workflows from `n8n/workflows` are copied into the persistent volumes on every
-container start before the n8n process runs. This keeps the imported workflows up to date with the Git source.
+During each image build the `sync-source.sh` helper copies the current repository into `/workspace` inside the container. This keeps the frontend, API, and n8n assets in sync even when you only distribute the Docker assets. The n8n container copies workflows from `/workspace/n8n/workflows` and helper functions from `/workspace/n8n/functions` into persistent volumes on every boot so you always run the Git-tracked versions.
 
 ## Useful Commands
 
@@ -77,8 +79,9 @@ container start before the n8n process runs. This keeps the imported workflows u
   ```powershell
   docker compose --env-file .env.docker up --build
   ```
-- **Inspect container logs:**
+- **Tail logs:**
   ```powershell
+  docker compose logs -f api
   docker compose logs -f frontend
   docker compose logs -f n8n
   docker compose logs -f db
@@ -86,23 +89,23 @@ container start before the n8n process runs. This keeps the imported workflows u
 
 ## Data Persistence
 
-Four named volumes keep your data between restarts:
+Named volumes keep state across restarts:
 
 - `mysql_data` – MySQL data files
 - `n8n_data` – n8n configuration, credentials, and runtime state
 - `n8n_workflows` – Imported workflow definitions synced from Git/local source
 - `n8n_extensions` – Custom function modules copied into the runtime
 
-Remove the volumes with `docker compose down -v` if you want a clean slate.
+Remove them with `docker compose down -v` for a clean slate.
 
 ## Troubleshooting
 
-- If the frontend cannot reach n8n, ensure the `VITE_API_URL` in your env file points to `http://n8n:5678` **inside Docker** or `http://localhost:5678` when accessed from the host.
-- The workflows are re-imported on each container start with `--overwrite`, so edits made through the n8n UI will persist in the mounted volume (`n8n_data`) but remember to export them back into `n8n/workflows` for version control.
+- If the frontend reports auth failures, ensure the API container is healthy and that `VITE_API_URL` points to the API host/port accessible from the browser.
+- For 401 errors in the browser console, verify cookies are set (the API issues httpOnly cookies on `*.dealflow.local` if you configure a domain).
+- If proposal generation fails, confirm the API `N8N_PROPOSAL_WEBHOOK_URL` targets the running n8n webhook endpoint (the default uses the internal hostname `http://n8n:5678/...`).
 
 ## Next Steps
 
-- Wire up CI to run `docker compose config` to verify future changes.
-- Add Playwright smoke tests that run against the composed environment.
-- Parameterize secrets through a secure secret store once deploying beyond local development.
-
+- Wire up CI to run `docker compose config` and the API unit tests once the pipeline is available.
+- Add Playwright smoke tests against the composed environment.
+- Replace static secrets in `.env.docker` with a secure secret store for non-local environments.
