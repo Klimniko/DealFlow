@@ -21,9 +21,11 @@ This repository contains the DealFlow frontend (React), n8n workflows, and MySQL
 
 2. **(Optional) Configure automatic source sync**
 
-   By default the containers clone the DealFlow repository declared in `.env.docker` into the image at build time. Update
-   `APP_GIT_REPO` with your actual GitHub URL (and `APP_GIT_REF` if you need a non-`main` branch). If you prefer to build from
-   your local working copy instead, set `APP_SOURCE_STRATEGY=local` in your env file before building.
+   By default Docker Compose downloads the repository declared by `APP_BUILD_CONTEXT` and hands it to both image builds. The
+   Dockerfiles themselves will then clone that same repository (using `APP_GIT_REPO`/`APP_GIT_REF`) into the container images so
+   n8n and the frontend have consistent sources. Update the URLs in `.env.docker` with your actual Git remote. If you prefer to
+   build from an existing checkout on your machine, change `APP_BUILD_CONTEXT=.` and set `APP_SOURCE_STRATEGY=local` before
+   running `docker compose`.
 
 3. **Build and start the stack**
 
@@ -57,8 +59,10 @@ All services share the `dealflow` Docker network so you can use container hostna
 ## Source Synchronisation
 
 During the image build phase the `sync-source.sh` helper either copies the local repository into the image (strategy `local`) or
-clones the remote Git repository/branch specified in `.env.docker` (strategy `git`). The contents are staged in `/workspace` so
-both the frontend build and the n8n bootstrap command can read from a consistent location inside the containers.
+clones the remote Git repository/branch specified in `.env.docker` (strategy `git`). The helper script is baked into each image
+so even a minimal host checkout that only contains `docker-compose.yml` can bootstrap successfully. The synced contents are
+staged in `/workspace`, giving both the frontend build and the n8n bootstrap command a consistent source tree inside the
+containers.
 
 Custom n8n helpers from `n8n/functions` and workflows from `n8n/workflows` are copied into the persistent volumes on every
 container start before the n8n process runs. This keeps the imported workflows up to date with the Git source.

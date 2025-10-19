@@ -27,7 +27,7 @@ services:
 
   n8n:
     build:
-      context: .
+      context: ${APP_BUILD_CONTEXT:-.}
       dockerfile: docker/n8n.Dockerfile
       args:
         APP_SOURCE_STRATEGY: ${APP_SOURCE_STRATEGY:-local}
@@ -77,7 +77,7 @@ services:
 
   frontend:
     build:
-      context: .
+      context: ${APP_BUILD_CONTEXT:-.}
       dockerfile: docker/frontend.Dockerfile
       args:
         APP_SOURCE_STRATEGY: ${APP_SOURCE_STRATEGY:-local}
