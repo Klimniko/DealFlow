@@ -1,0 +1,153 @@
+{
+  "name": "FX Rates - Daily Sync",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "mode": "every",
+              "value": 24
+            }
+          ],
+          "timeZone": "UTC"
+        }
+      },
+      "id": "Cron",
+      "name": "Cron",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.FX_API_URL || 'https://api.exchangerate-api.com/v4/latest/USD'}}",
+        "options": {
+          "responseFormat": "json"
+        }
+      },
+      "id": "FetchRates",
+      "name": "Fetch Rates",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 2,
+      "position": [420, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const supported = ['EUR','USD','VND','GBP','SGD','HKD','AUD'];\nconst base = $json.base || 'USD';\nconst asOf = $json.time_last_update_utc ? new Date($json.time_last_update_utc).toISOString().slice(0,10) : new Date().toISOString().slice(0,10);\nconst entries = [];\nfor (const code of supported) {\n  if (code === base) continue;\n  const rate = $json.rates?.[code];\n  if (!rate) continue;\n  entries.push({ base, quote: code, rate, as_of: asOf, source: 'ExchangeRate-API' });\n}\nreturn entries.map((entry) => ({ json: entry }));"
+      },
+      "id": "Transform",
+      "name": "Transform",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [640, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO fx_rates (base, quote, rate, as_of, source) VALUES (:base, :quote, :rate, :as_of, :source)\nON DUPLICATE KEY UPDATE rate = VALUES(rate), updated_at = NOW(), source = VALUES(source)",
+        "options": {
+          "useQueryParameters": true
+        }
+      },
+      "id": "UpsertRates",
+      "name": "Upsert Rates",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 1,
+      "position": [860, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "return items.map(item => ({ json: { message: `FX rate ${item.json.base}/${item.json.quote} updated` } }));"
+      },
+      "id": "LogSuccess",
+      "name": "Log Success",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1080, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO audit_log (user_id, entity, entity_id, action, delta_json) VALUES (NULL, 'fx_rates', 0, 'update', JSON_OBJECT('message', :message))",
+        "values": {
+          "string": [
+            {
+              "name": "message",
+              "value": "={{$json.message}}"
+            }
+          ]
+        }
+      },
+      "id": "Audit",
+      "name": "Audit",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 1,
+      "position": [1300, 300]
+    }
+  ],
+  "connections": {
+    "Cron": {
+      "main": [
+        [
+          {
+            "node": "Fetch Rates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Rates": {
+      "main": [
+        [
+          {
+            "node": "Transform",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transform": {
+      "main": [
+        [
+          {
+            "node": "Upsert Rates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert Rates": {
+      "main": [
+        [
+          {
+            "node": "Log Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Success": {
+      "main": [
+        [
+          {
+            "node": "Audit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "staticData": null,
+  "id": "fxRatesDailySync"
+}
