@@ -1,0 +1,275 @@
+{
+  "name": "RFx - Detail",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "rfx/:id",
+        "options": {
+          "responseMode": "lastNode",
+          "methods": ["GET", "PUT"]
+        }
+      },
+      "id": "HttpTrigger",
+      "name": "HTTP Trigger",
+      "type": "n8n-nodes-base.httpTrigger",
+      "typeVersion": 1,
+      "position": [200, 320]
+    },
+    {
+      "parameters": {
+        "functionCode": "const { authMiddleware } = require('../functions/authMiddleware.js');\nreturn authMiddleware(items);"
+      },
+      "id": "AuthMiddleware",
+      "name": "Auth Middleware",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [420, 320]
+    },
+    {
+      "parameters": {
+        "functionCode": "const id = Number($json.params.id);\nif (!Number.isFinite(id)) throw new Error('Invalid ID');\nreturn [{ json: { id, method: $json.request.method } }];"
+      },
+      "id": "Extract",
+      "name": "Extract",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [640, 320]
+    },
+    {
+      "parameters": {
+        "propertyName": "method",
+        "rules": [
+          {
+            "operation": "equal",
+            "value": "GET"
+          }
+        ]
+      },
+      "id": "Router",
+      "name": "Router",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [860, 320]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM rfx WHERE id = :id AND deleted_at IS NULL",
+        "values": {
+          "number": [
+            {
+              "name": "id",
+              "value": "={{$json.id}}"
+            }
+          ]
+        }
+      },
+      "id": "Select",
+      "name": "Select",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 1,
+      "position": [1080, 220]
+    },
+    {
+      "parameters": {
+        "functionCode": "const auth = $json.$auth;\nconst record = items[0].json[0];\nif (!record) { return [{ statusCode: 404, json: { message: 'Not found' } }]; }\nif (!auth.permissions.includes('*') && !auth.permissions.includes('rfx.view_all') && auth.user_id !== record.owner_user_id) { throw new Error('Forbidden'); }\nreturn [{ json: record }];"
+      },
+      "id": "RespondGet",
+      "name": "Respond Get",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1300, 220]
+    },
+    {
+      "parameters": {
+        "functionCode": "const auth = $json.$auth;\nif (!auth.permissions.includes('*') && !auth.permissions.includes('rfx.create')) { throw new Error('Forbidden'); }\nconst body = $json.body || {};\nreturn [{ json: { status: body.status, title: body.title, due_at: body.due_at, notes: body.notes } }];"
+      },
+      "id": "ValidateUpdate",
+      "name": "Validate Update",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1080, 420]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE rfx SET status = COALESCE(:status, status), title = COALESCE(:title, title), due_at = :due_at, notes = :notes WHERE id = :id",
+        "values": {
+          "number": [
+            {
+              "name": "id",
+              "value": "={{$json.id}}"
+            }
+          ],
+          "string": [
+            {
+              "name": "status",
+              "value": "={{$json.status}}"
+            },
+            {
+              "name": "title",
+              "value": "={{$json.title}}"
+            },
+            {
+              "name": "due_at",
+              "value": "={{$json.due_at}}"
+            },
+            {
+              "name": "notes",
+              "value": "={{$json.notes}}"
+            }
+          ]
+        }
+      },
+      "id": "Update",
+      "name": "Update",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 1,
+      "position": [1300, 420]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO audit_log (user_id, entity, entity_id, action, delta_json) VALUES (:user_id, 'rfx', :entity_id, 'update', JSON_OBJECT('status', :status, 'title', :title))",
+        "values": {
+          "string": [
+            {
+              "name": "user_id",
+              "value": "={{$json.$auth.user_id}}"
+            },
+            {
+              "name": "entity_id",
+              "value": "={{$json.id}}"
+            },
+            {
+              "name": "status",
+              "value": "={{$json.status}}"
+            },
+            {
+              "name": "title",
+              "value": "={{$json.title}}"
+            }
+          ]
+        }
+      },
+      "id": "AuditUpdate",
+      "name": "Audit Update",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 1,
+      "position": [1520, 420]
+    },
+    {
+      "parameters": {
+        "functionCode": "return [{ json: { success: true } }];"
+      },
+      "id": "RespondUpdate",
+      "name": "Respond Update",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1740, 420]
+    }
+  ],
+  "connections": {
+    "HTTP Trigger": {
+      "main": [
+        [
+          {
+            "node": "Auth Middleware",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auth Middleware": {
+      "main": [
+        [
+          {
+            "node": "Extract",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract": {
+      "main": [
+        [
+          {
+            "node": "Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Router": {
+      "main": [
+        [
+          {
+            "node": "Select",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Validate Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select": {
+      "main": [
+        [
+          {
+            "node": "Respond Get",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Update": {
+      "main": [
+        [
+          {
+            "node": "Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update": {
+      "main": [
+        [
+          {
+            "node": "Audit Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Audit Update": {
+      "main": [
+        [
+          {
+            "node": "Respond Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "staticData": null,
+  "id": "rfxDetail"
+}
