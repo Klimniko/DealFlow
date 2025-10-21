@@ -1,0 +1,441 @@
+{
+  "name": "Organizations - Detail",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "organizations/:id",
+        "options": {
+          "responseMode": "lastNode",
+          "methods": [
+            "GET",
+            "PUT",
+            "DELETE"
+          ]
+        }
+      },
+      "id": "HttpTrigger",
+      "name": "HTTP Trigger",
+      "type": "n8n-nodes-base.httpTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const { authMiddleware } = require('../functions/authMiddleware.js');\nreturn authMiddleware(items);"
+      },
+      "id": "AuthMiddleware",
+      "name": "Auth Middleware",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        420,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const method = $json.request.method;\nconst id = Number($json.params.id);\nif (!Number.isFinite(id)) {\n  throw new Error('Invalid ID');\n}\nreturn [{ json: { method, id } }];"
+      },
+      "id": "Extract",
+      "name": "Extract",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        640,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "propertyName": "method",
+        "rules": [
+          {
+            "operation": "equal",
+            "value": "GET"
+          }
+        ]
+      },
+      "id": "Router",
+      "name": "Router",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        860,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, name, type, website, country_code, timezone, notes, created_at, updated_at FROM organizations WHERE id = :id AND deleted_at IS NULL",
+        "values": {
+          "number": [
+            {
+              "name": "id",
+              "value": "={{$json.id}}"
+            }
+          ]
+        }
+      },
+      "id": "Select",
+      "name": "Select",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 1,
+      "position": [
+        1080,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "if (!items[0].json.length) {\n  return [{ statusCode: 404, json: { message: 'Not found' } }];\n}\nreturn [{ json: items[0].json[0] }];"
+      },
+      "id": "RespondGet",
+      "name": "Respond Get",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const auth = $json.$auth;\nif (!auth.permissions.includes('*') && !auth.permissions.includes('rfx.create')) {\n  throw new Error('Forbidden');\n}\nconst body = $json.body || {};\nreturn [{ json: { name: body.name, type: body.type, website: body.website, country_code: body.country_code, timezone: body.timezone, notes: body.notes } }];"
+      },
+      "id": "ValidateUpdate",
+      "name": "Validate Update",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1080,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE organizations SET name = :name, type = :type, website = :website, country_code = :country_code, timezone = :timezone, notes = :notes WHERE id = :id",
+        "values": {
+          "number": [
+            {
+              "name": "id",
+              "value": "={{$json.id}}"
+            }
+          ],
+          "string": [
+            {
+              "name": "name",
+              "value": "={{$json.name}}"
+            },
+            {
+              "name": "type",
+              "value": "={{$json.type}}"
+            },
+            {
+              "name": "website",
+              "value": "={{$json.website}}"
+            },
+            {
+              "name": "country_code",
+              "value": "={{$json.country_code}}"
+            },
+            {
+              "name": "timezone",
+              "value": "={{$json.timezone}}"
+            },
+            {
+              "name": "notes",
+              "value": "={{$json.notes}}"
+            }
+          ]
+        }
+      },
+      "id": "Update",
+      "name": "Update",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO audit_log (user_id, entity, entity_id, action, delta_json) VALUES (:user_id, 'organizations', :entity_id, 'update', JSON_OBJECT('name', :name, 'type', :type))",
+        "values": {
+          "string": [
+            {
+              "name": "user_id",
+              "value": "={{$json.$auth.user_id}}"
+            },
+            {
+              "name": "entity_id",
+              "value": "={{$json.id}}"
+            },
+            {
+              "name": "name",
+              "value": "={{$json.name}}"
+            },
+            {
+              "name": "type",
+              "value": "={{$json.type}}"
+            }
+          ]
+        }
+      },
+      "id": "AuditUpdate",
+      "name": "Audit Update",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 1,
+      "position": [
+        1520,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "return [{ json: { success: true } }];"
+      },
+      "id": "RespondUpdate",
+      "name": "Respond Update",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1740,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const auth = $json.$auth;\nif (!auth.permissions.includes('*') && !auth.permissions.includes('rfx.create')) {\n  throw new Error('Forbidden');\n}\nreturn items;"
+      },
+      "id": "EnsureDeletePermission",
+      "name": "Ensure Delete Permission",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1080,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE organizations SET deleted_at = NOW() WHERE id = :id",
+        "values": {
+          "number": [
+            {
+              "name": "id",
+              "value": "={{$json.id}}"
+            }
+          ]
+        }
+      },
+      "id": "SoftDelete",
+      "name": "Soft Delete",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO audit_log (user_id, entity, entity_id, action, delta_json) VALUES (:user_id, 'organizations', :entity_id, 'delete', JSON_OBJECT('deleted_at', NOW()))",
+        "values": {
+          "string": [
+            {
+              "name": "user_id",
+              "value": "={{$json.$auth.user_id}}"
+            },
+            {
+              "name": "entity_id",
+              "value": "={{$json.id}}"
+            }
+          ]
+        }
+      },
+      "id": "AuditDelete",
+      "name": "Audit Delete",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 1,
+      "position": [
+        1520,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "return [{ statusCode: 204 }];"
+      },
+      "id": "RespondDelete",
+      "name": "Respond Delete",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1740,
+        560
+      ]
+    }
+  ],
+  "connections": {
+    "HTTP Trigger": {
+      "main": [
+        [
+          {
+            "node": "Auth Middleware",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auth Middleware": {
+      "main": [
+        [
+          {
+            "node": "Extract",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract": {
+      "main": [
+        [
+          {
+            "node": "Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Router": {
+      "main": [
+        [
+          {
+            "node": "Select",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Validate Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "else": {
+        "main": [
+          [
+            {
+              "node": "Ensure Delete Permission",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "Select": {
+      "main": [
+        [
+          {
+            "node": "Respond Get",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Update": {
+      "main": [
+        [
+          {
+            "node": "Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update": {
+      "main": [
+        [
+          {
+            "node": "Audit Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Audit Update": {
+      "main": [
+        [
+          {
+            "node": "Respond Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ensure Delete Permission": {
+      "main": [
+        [
+          {
+            "node": "Soft Delete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Soft Delete": {
+      "main": [
+        [
+          {
+            "node": "Audit Delete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Audit Delete": {
+      "main": [
+        [
+          {
+            "node": "Respond Delete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "staticData": null,
+  "id": "organizationsDetail",
+  "active": false,
+  "tags": [],
+  "meta": {
+    "instanceId": "dealflow-docker"
+  },
+  "versionId": "4183f200-d676-4eb7-91cb-7cdb6159e2c0"
+}
