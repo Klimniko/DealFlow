@@ -31,7 +31,7 @@ function handleJwtError(error: unknown): never {
 
 function toAuthPayload(user: { id: number; email: string; role: string; permissions: string[]; organizationId: number | null }) {
   return {
-    sub: user.id,
+    sub: String(user.id),
     email: user.email,
     role: user.role,
     permissions: user.permissions,
@@ -71,7 +71,11 @@ export async function authenticateUser(email: string, password: string) {
 export async function getUserFromAccessToken(token: string) {
   try {
     const payload = verifyAccessToken(token);
-    const user = await findUserById(payload.sub);
+    const userId = Number.parseInt(payload.sub, 10);
+    if (Number.isNaN(userId)) {
+      throw new HttpError(401, 'Invalid token');
+    }
+    const user = await findUserById(userId);
     if (!user) {
       throw new HttpError(401, 'Invalid token');
     }
@@ -104,7 +108,11 @@ export async function refreshTokens(currentToken: string) {
   if (stored.rotated_at) {
     throw new HttpError(401, 'Refresh token already used');
   }
-  const user = await findUserById(payload.sub);
+  const userId = Number.parseInt(payload.sub, 10);
+  if (Number.isNaN(userId)) {
+    throw new HttpError(401, 'Invalid token');
+  }
+  const user = await findUserById(userId);
   if (!user) {
     throw new HttpError(401, 'User not found');
   }

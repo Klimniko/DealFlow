@@ -8,7 +8,7 @@ interface UserRow extends RowDataPacket {
   name: string;
   role: string;
   role_id: number;
-  password_hash?: string;
+  password_hash: string;
   active: number;
   org_id: number | null;
 }
